@@ -5,8 +5,8 @@ ft_defaults;
 %DIR         = 'C:\Users\z5171263\Downloads\plot_ecg';
 % DIR= 'C:\Users\sidpa\Downloads\plot_ecg';
 DIR = 'D:\plot_ecg';
-FILE        = '31_03_25_SIPA_TMS 1.cnt';
-fn    = fullfile(DIR,FILE);
+FILE = 'HS_AN_2025-04-11_10-17-08.cnt';
+fn = fullfile(DIR,FILE);
 info = eepv4_read_info(fn);
 
 %% take events and only keep 10,-10 (start and end of a 5 minute block)
@@ -44,6 +44,7 @@ xlabel('Time (s)');
 ylabel('ECG Amplitude');
 
 %% plot whole ecg signal with start and end blocks marked
+
 
 figure;
 plot(t, ecg_signal, 'b'); 
@@ -182,7 +183,7 @@ ylabel('Amplitude');
 %sure how valid need to test more
 
 num_blocks = length(ecg_blocks);
-all_rr = cell(1, num_blocks);  % Store RR intervals
+all_rr = cell(1, num_blocks);  
 for k = 1:num_blocks
     signal = ecg_blocks{k};
     t = time_blocks{k};
@@ -207,24 +208,24 @@ end
 
 
 %% scatter, doesn't show much but thought maybe we can do sth with this later
-for k = 1:num_blocks
-    signal = ecg_blocks{k};
-    t = time_blocks{k};
-    signal = detrend(signal);  % Normalize signal
-
-    % Find R-peaks
-    amp_thresh = 0.35 * (max(signal) - min(signal));
-    [~, locs] = findpeaks(signal, 'MinPeakHeight', amp_thresh, 'MinPeakDistance', round(0.6 * fs));
-    r_times_all_blocks = t(locs);  % Time of R-peaks
-    r_amplitudes = signal(locs);  % Amplitude at R-peak locations
-
-    % Plot R-peaks as a scatter plot of R-peak times vs. R-peak amplitudes
-    figure;
-    scatter(r_times_all_blocks, r_amplitudes, 'r', 'filled');
-    title(sprintf('Block %d R-peak Locations', k));
-    xlabel('Time (s)');
-    ylabel('R-peak Amplitude');
-end
+% for k = 1:num_blocks
+%     signal = ecg_blocks{k};
+%     t = time_blocks{k};
+%     signal = detrend(signal);
+% 
+%     % Find R-peaks
+%     amp_thresh = 0.35 * (max(signal) - min(signal));
+%     [~, locs] = findpeaks(signal, 'MinPeakHeight', amp_thresh, 'MinPeakDistance', round(0.6 * fs));
+%     r_times_all_blocks = t(locs);  % Time of R-peaks
+%     r_amplitudes = signal(locs);  % Amplitude at R-peak locations
+% 
+%     % Plot R-peaks as a scatter plot of R-peak times vs. R-peak amplitudes
+%     figure;
+%     scatter(r_times_all_blocks, r_amplitudes, 'r', 'filled');
+%     title(sprintf('Block %d R-peak Locations', k));
+%     xlabel('Time (s)');
+%     ylabel('R-peak Amplitude');
+% end
 
 %% 
 HRV_metrics = struct('meanRR', [], 'SDNN', [], 'RMSSD', []);
@@ -240,7 +241,7 @@ for k = 1:num_blocks
     diff_rr = diff(rr);
     RMSSD = sqrt(mean(diff_rr.^2));
 
-    % Store metrics
+    %HRV_metrics structure to store these values 
     HRV_metrics(k).meanRR = meanRR;
     HRV_metrics(k).SDNN = SDRR;
     HRV_metrics(k).RMSSD = RMSSD;
@@ -251,3 +252,60 @@ for k = 1:num_blocks
     fprintf('  SDNN: %.4f s\n', SDRR);
     fprintf('  RMSSD: %.4f s\n\n', RMSSD);
 end
+
+%% In the situation where there are peaks that are not detected in a block
+%can mark peaks after zooming and panning
+%if there is an entire block with no peaks then just change the threshold
+%value in "amp_thresh=..." above
+
+num_blocks = length(ecg_blocks);
+all_rr = cell(1, num_blocks);
+ 
+for k = 1:num_blocks
+    signal = ecg_blocks{k};
+    t = time_blocks{k};
+    signal = detrend(signal);
+    amp_thresh = 0.35 * (max(signal) - min(signal));
+    [~, auto_locs] = findpeaks(signal, 'MinPeakHeight', amp_thresh,'MinPeakDistance', round(0.6 * fs));  
+ 
+    % Plot signal and auto peaks
+    fig = figure;
+    plot(t, signal); hold on;
+    plot(t(auto_locs), signal(auto_locs), 'ro');
+    title(sprintf('Block %d: Press "m" to mark, "q" to quit marking', k));
+    xlabel('Time (s)'); ylabel('Amplitude');
+    legend('ECG', 'Auto Peaks');
+    zoom on; pan on;
+ 
+    manual_locs = [];
+ 
+    % Key press handling
+    set(fig, 'KeyPressFcn', @(src, event) setappdata(src, 'key', event.Key));
+ 
+    disp('Explore freely. Press "m" to mark peaks, "q" to finish.');
+ 
+    while true
+        waitfor(fig, 'CurrentCharacter');  
+        key = get(fig, 'CurrentCharacter');
+        set(fig, 'CurrentCharacter', ' ');  
+        if strcmpi(key, 'm')
+            disp('Click on missed peaks, then press Enter...');
+            [x, ~] = ginput;
+            for i = 1:length(x)
+                [~, idx] = min(abs(t - x(i)));
+                manual_locs = [manual_locs; idx];
+                plot(t(idx), signal(idx), 'ro', 'MarkerSize', 8, 'LineWidth', 1.5);
+            end
+        elseif strcmpi(key, 'q')
+            break;
+        end
+    end
+ 
+    % Combine and sort peaks
+    all_locs = sort(unique([auto_locs; manual_locs]));
+    r_times_all_blocks = t(all_locs);
+    rr_intervals_all_blocks = diff(r_times_all_blocks);
+    all_rr{k} = rr_intervals_all_blocks;
+end
+
+
