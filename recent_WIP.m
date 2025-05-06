@@ -214,12 +214,12 @@ for k = 1:num_blocks
     
     signal      = detrend(signal);
     amp_thresh  = mean(signal) + 2.5*std(signal);  % Ensure consistent threshold
-    [~, auto_locs] = findpeaks(signal, 'MinPeakHeight', amp_thresh, 'MinPeakProminence', 10);
+    [~, locs] = findpeaks(signal, 'MinPeakHeight', amp_thresh, 'MinPeakProminence', 10);
     
     % Plot signal and auto peaks
     fig = figure;
     plot(t, signal); hold on;
-    plot(t(auto_locs), signal(auto_locs), 'ro');
+    plot(t(locs), signal(locs), 'ro');
     title(sprintf('Block %d: Press "m" to mark, "r" to remove peaks, "q" to quit marking', k));
     xlabel('Time (s)'); ylabel('Amplitude');
     legend('ECG', 'Auto Peaks');
@@ -253,9 +253,9 @@ for k = 1:num_blocks
                 [~, idx] = min(abs(t - x(i)));  % Find closest point in time
 
                 % Find the closest auto peak and remove it if it matches
-                [~, auto_idx] = min(abs(t(auto_locs) - t(idx)));
-                if abs(t(auto_locs(auto_idx)) - t(idx)) < 1e-5  % Small threshold for precision
-                    auto_locs(auto_idx) = [];  % Remove from auto_locs
+                [~, auto_idx] = min(abs(t(locs) - t(idx)));
+                if abs(t(locs(auto_idx)) - t(idx)) < 1e-5  % Small threshold for precision
+                    locs(auto_idx) = [];  % Remove from auto_locs
                 end
 
                 % Find the closest manual peak and remove it if it matches
@@ -267,7 +267,7 @@ for k = 1:num_blocks
                 % Redraw the signal and remaining peaks
                 clf;  % Clear current figure
                 plot(t, signal); hold on;
-                plot(t(auto_locs), signal(auto_locs), 'ro');  % Plot remaining auto peaks
+                plot(t(locs), signal(locs), 'ro');  % Plot remaining auto peaks
                 plot(t(manual_locs), signal(manual_locs), 'go');  % Plot remaining manual peaks
                 title(sprintf('Block %d: Press "m" to mark, "r" to remove peaks, "q" to quit marking', k));
                 xlabel('Time (s)'); ylabel('Amplitude');
@@ -285,7 +285,7 @@ for k = 1:num_blocks
     close(fig);
 
     % Combine and sort peaks
-    all_locs = sort(unique([auto_locs; manual_locs]));
+    all_locs = sort(unique([locs; manual_locs]));
     r_times_all_blocks = t(all_locs);
     rr_intervals_all_blocks = diff(r_times_all_blocks);
     all_rr{k} = rr_intervals_all_blocks;
