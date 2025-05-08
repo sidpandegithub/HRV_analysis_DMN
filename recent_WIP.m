@@ -285,7 +285,8 @@ for k = 1:num_blocks
     close(fig);
 
     % Combine and sort peaks
-    all_locs = sort(unique([locs; manual_locs]));
+    %all_locs = sort(unique([locs; manual_locs]));
+    all_locs = sort(unique([locs(:); manual_locs(:)]));
     r_times_all_blocks = t(all_locs);
     rr_intervals_all_blocks = diff(r_times_all_blocks);
     all_rr{k} = rr_intervals_all_blocks;
